@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Upload</title>
+</head>
+<body>
+    <h1>Content Upload</h1>
+    <h2>Image Upload</h2>
+    <form id="imageUploadForm" enctype="multipart/form-data">
+        <input type="file" name="image" id="imageInput" accept="image/*">
+        <button type="submit">Upload Image</button>
+    </form>
+    <div id="imageMessage"></div>
+
+    <h2>Video Upload</h2>
+    <form id="videoUploadForm" enctype="multipart/form-data">
+        <input type="file" name="video" id="videoInput" accept="video/*">
+        <button type="submit">Upload Video</button>
+    </form>
+    <div id="videoMessage"></div>
+
+    <script>
+        // Image upload form submission
+        document.getElementById('imageUploadForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const formData = new FormData();
+            const imageInput = document.getElementById('imageInput');
+            const file = imageInput.files[0];
+            formData.append('image', file);
+            
+            try {
+                const response = await fetch('http://localhost:3000/upload/image', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                document.getElementById('imageMessage').innerText = `Image uploaded successfully. Hash: ${data.hash}`;
+            } catch (error) {
+                console.error('Error uploading image:', error);
+                document.getElementById('imageMessage').innerText = 'Error uploading image. Please try again.';
+            }
+        });
+
+        // Video upload form submission
+        document.getElementById('videoUploadForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const formData = new FormData();
+            const videoInput = document.getElementById('videoInput');
+            const file = videoInput.files[0];
+            formData.append('video', file);
+            
+            try {
+                const response = await fetch('http://localhost:3000/upload/video', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                document.getElementById('videoMessage').innerText = `Video uploaded successfully. Hash: ${data.hash}`;
+            } catch (error) {
+                console.error('Error uploading video:', error);
+                document.getElementById('videoMessage').innerText = 'Error uploading video. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>
