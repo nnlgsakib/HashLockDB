@@ -7,20 +7,11 @@
       }
     ],
     "routes": [
-      {
-        "src": "/upload/image",
-        "methods": ["POST"],
-        "dest": "/api/upload/image"
-      },
-      {
-        "src": "/upload/video",
-        "methods": ["POST"],
-        "dest": "/api/upload/video"
-      },
-      {
-        "src": "/gateway/:hash",
-        "methods": ["GET"],
-        "dest": "/api/gateway/:hash"
-      }
-    ]
+      { "src": "/upload/image", "dest": "index.ts" },
+      { "src": "/upload/video", "dest": "index.ts" },
+      { "src": "/gateway/:hash", "dest": "index.ts" }
+    ],
+    "env": {
+      "LEVELDB_PATH": "./data"
+    }
   }
