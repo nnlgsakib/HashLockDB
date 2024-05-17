@@ -1,11 +1,11 @@
 {
   "version": 2,
   "builds": [
-    { "src": "index.ts", "use": "@vercel/node" }
+    { "src": "src/server.ts", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/upload/image", "dest": "index.ts" },
-    { "src": "/upload/video", "dest": "index.ts" },
-    { "src": "/gateway/(.*)", "dest": "index.ts" }
+    { "src": "/upload/image", "dest": "src/server.ts" },
+    { "src": "/upload/video", "dest": "src/server.ts" },
+    { "src": "/gateway/(.*)", "dest": "src/server.ts" }
   ]
 }
