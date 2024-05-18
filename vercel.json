@@ -4,8 +4,7 @@
     { "src": "src/server.ts", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/upload/image", "dest": "src/server.ts" },
-    { "src": "/upload/video", "dest": "src/server.ts" },
+    { "src": "/upload/(.*)", "dest": "src/server.ts" },
     { "src": "/gateway/(.*)", "dest": "src/server.ts" }
   ]
 }
