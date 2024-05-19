@@ -2,11 +2,12 @@ import express, { Request, Response } from 'express';
 import multer from 'multer';
 import { generateEthereumStyleHash } from '../utils/hash';
 import { db } from '../utils/db';
-import { encryptData } from '../utils/encryption';
+
+// Import encryption functions
+import { encryptData, decryptData } from '../utils/encryption';
+
 const uploadRouter = express.Router();
 const upload = multer();
-
-
 
 uploadRouter.post('/image', upload.single('image'), async (req: Request, res: Response) => {
     try {

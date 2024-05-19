@@ -4,11 +4,14 @@ import { decryptData } from '../utils/encryption';
 
 const gatewayRouter = express.Router();
 
-
 gatewayRouter.get('/:hash', async (req: Request, res: Response) => {
     try {
         const { hash } = req.params;
         const encryptedMetadata = await db.get(hash);
+
+        if (!encryptedMetadata) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
 
         // Decrypt the metadata
         const metadataStr = decryptData(encryptedMetadata, hash);
@@ -22,7 +25,7 @@ gatewayRouter.get('/:hash', async (req: Request, res: Response) => {
         res.send(fileBuffer);
     } catch (error) {
         console.error('Error retrieving content:', error);
-        res.status(404).json({ message: 'Content not found' });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
