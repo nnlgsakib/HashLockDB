@@ -2,9 +2,11 @@ import express, { Request, Response } from 'express';
 import multer from 'multer';
 import { generateEthereumStyleHash } from '../utils/hash';
 import { db } from '../utils/db';
-
+import { encryptData } from '../utils/encryption';
 const uploadRouter = express.Router();
 const upload = multer();
+
+
 
 uploadRouter.post('/image', upload.single('image'), async (req: Request, res: Response) => {
     try {
@@ -15,7 +17,12 @@ uploadRouter.post('/image', upload.single('image'), async (req: Request, res: Re
         const { buffer: imageBuffer, mimetype, originalname } = req.file;
         const hash = generateEthereumStyleHash(imageBuffer.toString('base64'));
 
-        await db.put(hash, JSON.stringify({ mimetype, originalname, data: imageBuffer.toString('base64') }));
+        // Encrypt the data and metadata
+        const encryptedData = encryptData(imageBuffer.toString('base64'), hash);
+        const metadata = JSON.stringify({ mimetype, originalname, data: encryptedData });
+        const encryptedMetadata = encryptData(metadata, hash);
+
+        await db.put(hash, encryptedMetadata);
         return res.status(200).json({ hash });
     } catch (error) {
         console.error('Error uploading image:', error);
@@ -32,7 +39,12 @@ uploadRouter.post('/video', upload.single('video'), async (req: Request, res: Re
         const { buffer: videoBuffer, mimetype, originalname } = req.file;
         const hash = generateEthereumStyleHash(videoBuffer.toString('base64'));
 
-        await db.put(hash, JSON.stringify({ mimetype, originalname, data: videoBuffer.toString('base64') }));
+        // Encrypt the data and metadata
+        const encryptedData = encryptData(videoBuffer.toString('base64'), hash);
+        const metadata = JSON.stringify({ mimetype, originalname, data: encryptedData });
+        const encryptedMetadata = encryptData(metadata, hash);
+
+        await db.put(hash, encryptedMetadata);
         return res.status(200).json({ hash });
     } catch (error) {
         console.error('Error uploading video:', error);
