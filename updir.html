@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload Test</title>
+</head>
+<body>
+    <h1>File Upload Test</h1>
+
+    <!-- Single File Upload Form -->
+    <h2>Single File Upload</h2>
+    <form id="singleFileUploadForm" enctype="multipart/form-data">
+        <label for="singleFile">Choose file:</label>
+        <input type="file" id="singleFile" name="file">
+        <button type="submit">Upload</button>
+    </form>
+    <div id="singleFileUploadResult"></div>
+
+    <!-- Directory Upload Form -->
+    <h2>Directory Upload</h2>
+    <form id="directoryUploadForm" enctype="multipart/form-data">
+        <label for="directoryFiles">Choose files:</label>
+        <input type="file" id="directoryFiles" name="files" multiple webkitdirectory mozdirectory>
+        <button type="submit">Upload</button>
+    </form>
+    <div id="directoryUploadResult"></div>
+
+    <script>
+        document.getElementById('singleFileUploadForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            const fileInput = document.getElementById('singleFile');
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('http://localhost:3000/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                document.getElementById('singleFileUploadResult').innerText = JSON.stringify(result);
+            } catch (error) {
+                document.getElementById('singleFileUploadResult').innerText = 'Error uploading file: ' + error.message;
+            }
+        });
+
+        document.getElementById('directoryUploadForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            const fileInput = document.getElementById('directoryFiles');
+            for (const file of fileInput.files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/upload/directory', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                document.getElementById('directoryUploadResult').innerText = JSON.stringify(result);
+            } catch (error) {
+                document.getElementById('directoryUploadResult').innerText = 'Error uploading files: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -32,5 +32,43 @@ gatewayRouter.get('/:encryptedHash', async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
+// New endpoint for retrieving directory contents
+gatewayRouter.get('/directory/:mainHash', async (req: Request, res: Response) => {
+    try {
+        const { mainHash } = req.params;
+        
+        console.log('Requested main hash:', mainHash);
+
+        let encryptedFileHashes;
+        try {
+            encryptedFileHashes = await db.get(mainHash);
+        } catch (err) {
+            console.error('Error retrieving encrypted file hashes:', err);
+            return res.status(500).json({ message: 'Error retrieving directory' });
+        }
+
+        console.log('Encrypted file hashes:', encryptedFileHashes);
+
+        if (!encryptedFileHashes) {
+            return res.status(404).json({ message: 'Directory not found' });
+        }
+
+        let fileHashes;
+        try {
+            fileHashes = JSON.parse(encryptedFileHashes);
+        } catch (err) {
+            console.error('Error parsing file hashes:', err);
+            return res.status(500).json({ message: 'Error parsing directory' });
+        }
+
+        console.log('File hashes:', fileHashes);
+
+        res.status(200).json({ files: fileHashes });
+    } catch (error) {
+        console.error('Error retrieving directory contents:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 
 export default gatewayRouter;
