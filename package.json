@@ -1,7 +1,7 @@
 {
-  "name": "opendb",
+  "name": "HashLockDB",
   "version": "1.0.0",
-  "description": "An Open and super secure cryptographic content database for everyone ",
+  "description": "An open,distributed and super secure cryptographic content database for everyone ",
   "scripts": {
     "start": "ts-node src/server.ts"
   },
