@@ -1,19 +1,23 @@
 import express, { Request, Response } from 'express';
 import { db } from '../utils/db';
-import { decryptData } from '../utils/encryption';
+import { decryptData, keccak256 } from '../utils/encryption';
 
 const gatewayRouter = express.Router();
 
-gatewayRouter.get('/:hash', async (req: Request, res: Response) => {
+gatewayRouter.get('/:encryptedHash', async (req: Request, res: Response) => {
     try {
-        const { hash } = req.params;
+        const { encryptedHash } = req.params;
+        
+        // Decrypt the hash using Keccak (SHA-3)
+        const hash = keccak256(encryptedHash);
+        
         const encryptedMetadata = await db.get(hash);
 
         if (!encryptedMetadata) {
             return res.status(404).json({ message: 'Content not found' });
         }
 
-        // Decrypt the metadata
+        // Decrypt the metadata using the decrypted hash
         const metadataStr = decryptData(encryptedMetadata, hash);
         const metadata = JSON.parse(metadataStr);
 
