@@ -1,17 +1,25 @@
 import crypto from 'crypto';
 
+// AES encryption algorithm
+const ALGORITHM = 'aes-256-cbc';
+
 // Function to encrypt data using AES
 export function encryptData(data: string, key: string): string {
-    const cipher = crypto.createCipher('aes-256-cbc', key);
+    const iv = crypto.randomBytes(16); // Generate a random initialization vector
+    const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(key, 'hex'), iv);
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    return encrypted;
+    // Combine IV and encrypted data for decryption
+    return iv.toString('hex') + ':' + encrypted;
 }
 
 // Function to decrypt data using AES
 export function decryptData(encryptedData: string, key: string): string {
-    const decipher = crypto.createDecipher('aes-256-cbc', key);
-    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    const parts = encryptedData.split(':');
+    const iv = Buffer.from(parts.shift() as string, 'hex'); // Extract the IV
+    const encryptedText = parts.join(':');
+    const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(key, 'hex'), iv);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
 }
