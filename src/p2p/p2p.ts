@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { db } from './../utils/db';
 import { decryptData } from './../utils/encryption';
+import { findAvailablePort } from './../utils/port-finder'; // Import the port finder function
 
 interface Peer {
     host: string;
@@ -18,7 +19,7 @@ class P2PNode {
 
     constructor() {
         this.nodeId = this.generateNodeId();
-        this.port = this.getRandomPort();
+        this.port = 3001; // Default port
         this.server = net.createServer(this.handleConnection.bind(this));
         this.initializeNode();
     }
@@ -26,10 +27,6 @@ class P2PNode {
     private generateNodeId(): string {
         const hash = crypto.createHash('sha256').update(Date.now().toString()).digest('hex');
         return `node-${hash.slice(0, 16)}`;
-    }
-
-    private getRandomPort(): number {
-        return Math.floor(Math.random() * (65535 - 1024 + 1)) + 1024;
     }
 
     private async initializeNode() {
@@ -43,28 +40,12 @@ class P2PNode {
     }
 
     private async findAvailablePort() {
-        while (true) {
-            try {
-                await new Promise<void>((resolve, reject) => {
-                    this.server.once('error', (err: any) => {
-                        if (err.code === 'EADDRINUSE') {
-                            console.log(`Port ${this.port} is in use, trying next port...`);
-                            this.port++;
-                            resolve();
-                        } else {
-                            reject(err);
-                        }
-                    });
-                    this.server.listen(this.port, () => {
-                        this.server.close(() => resolve());
-                    });
-                });
-                console.log(`Selected available port: ${this.port}`);
-                break;
-            } catch (err) {
-                console.error('Error finding available port:', err);
-                this.port++;
-            }
+        try {
+            this.port = await findAvailablePort(this.port);
+            console.log(`Selected available port: ${this.port}`);
+        } catch (err) {
+            console.error('Error finding an available port:', err);
+            throw err; // Rethrow the error to handle it in initializeNode
         }
     }
 

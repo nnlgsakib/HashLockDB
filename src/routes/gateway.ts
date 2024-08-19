@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { keccak256, decryptData } from '../utils/encryption';
+import { keccak256 } from '../utils/encryption';
 import { p2pNode } from '../p2p/p2p';
 
 const gatewayRouter = express.Router();
@@ -17,8 +17,7 @@ gatewayRouter.get('/:encryptedHash', async (req: Request, res: Response) => {
         }
 
         const { metadata, data } = result;
-        const decryptedData = decryptData(data, process.env.ENCRYPTION_KEY || ''); // Decrypt data using key from environment variables
-        const fileBuffer = Buffer.from(decryptedData, 'utf8'); // Convert decrypted data to binary
+        const fileBuffer = Buffer.from(data, 'base64'); // Decode base64 to binary data
 
         res.set('Content-Type', metadata.mimetype);
         res.send(fileBuffer);
@@ -54,12 +53,11 @@ gatewayRouter.get('/directory/:mainHash', async (req: Request, res: Response) =>
         const filesWithMetadata = await Promise.all(fileHashes.map(async (fileInfo) => {
             const fileResult = await p2pNode.getFile(fileInfo.hash);
             if (fileResult) {
-                const decryptedData = decryptData(fileResult.data, process.env.ENCRYPTION_KEY || ''); // Decrypt data using key from environment variables
                 return {
                     originalname: fileInfo.originalname,
                     hash: fileInfo.hash,
                     mimetype: fileResult.metadata.mimetype,
-                    size: Buffer.from(decryptedData, 'utf8').length // Get the size of the decrypted data
+                    size: Buffer.from(fileResult.data, 'base64').length // Get the size of the file data
                 };
             }
             return null;
@@ -75,3 +73,6 @@ gatewayRouter.get('/directory/:mainHash', async (req: Request, res: Response) =>
 });
 
 export default gatewayRouter;
+
+
+
