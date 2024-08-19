@@ -42,7 +42,7 @@ class P2PNode {
     private async findAvailablePort() {
         try {
             this.port = await findAvailablePort(this.port);
-            console.log(`Selected available port: ${this.port}`);
+          //  console.log(`Selected available port: ${this.port}`);
         } catch (err) {
             console.error('Error finding an available port:', err);
             throw err; // Rethrow the error to handle it in initializeNode

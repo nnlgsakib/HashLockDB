@@ -17,7 +17,7 @@ const startServer = async () => {
     // Find an available port for the HTTP server
     try {
         HTTP_PORT = await findAvailablePort(DEFAULT_HTTP_PORT);
-        console.log(`Selected available port for HTTP server: ${HTTP_PORT}`);
+       // console.log(`Selected available port for HTTP server: ${HTTP_PORT}`);
     } catch (err) {
         console.error('Error finding an available port for HTTP server:', err);
         return;
