@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { db } from './../utils/db';
-import { decryptData } from './../utils/encryption';
-import { findAvailablePort } from './../utils/port-finder'; // Import the port finder function
+import { decryptData, encryptData } from './../utils/encryption';
+import { findAvailablePort } from './../utils/port-finder';
 
 interface Peer {
     host: string;
@@ -14,6 +14,7 @@ interface Peer {
 class P2PNode {
     private nodeId: string;
     private peers: Peer[] = [];
+    private requestForwarding: Map<string, net.Socket[]> = new Map();
     public server: net.Server;
     public port: number;
 
@@ -42,10 +43,9 @@ class P2PNode {
     private async findAvailablePort() {
         try {
             this.port = await findAvailablePort(this.port);
-          //  console.log(`Selected available port: ${this.port}`);
         } catch (err) {
             console.error('Error finding an available port:', err);
-            throw err; // Rethrow the error to handle it in initializeNode
+            throw err;
         }
     }
 
@@ -88,7 +88,7 @@ class P2PNode {
             });
 
             client.on('error', (err) => {
-                console.error(`Error with peer ${peer.host}:${peer.port}:`, err);
+                console.error(`Connection error with peer ${peer.host}:${peer.port}:`, err);
             });
         });
     }
@@ -111,8 +111,11 @@ class P2PNode {
             }
         });
 
-        socket.on('error', (err) => {
+        socket.on('error', (err:any) => {
             console.error('Connection error:', err);
+            if (err.code === 'ECONNRESET') {
+                console.log('Peer connection was reset.');
+            }
         });
     }
 
@@ -133,6 +136,15 @@ class P2PNode {
             case 'GET_FILE':
                 this.handleGetFile(message.hash, socket);
                 break;
+            case 'FILE_FOUND':
+                this.handleFileFound(message.hash, message.metadata, message.data, socket);
+                break;
+            case 'FORWARD_REQUEST':
+                this.handleForwardRequest(message.hash, socket);
+                break;
+            case 'FILE_NOT_FOUND':
+                this.handleFileNotFound(message.hash, socket);
+                break;
             default:
                 console.log('Unknown message type:', message.type);
         }
@@ -145,17 +157,74 @@ class P2PNode {
                 const metadataStr = decryptData(encryptedMetadata, hash);
                 const metadata = JSON.parse(metadataStr);
                 const decryptedData = decryptData(metadata.data, hash);
-                this.sendMessage(socket, 'FILE_FOUND', {
-                    metadata,
-                    data: decryptedData
-                });
+                this.sendMessage(socket, 'FILE_FOUND', { hash, metadata, data: decryptedData });
             } else {
-                this.sendMessage(socket, 'FILE_NOT_FOUND', {});
+                this.forwardRequest(hash, socket);
             }
-        } catch (error) {
-            console.error('Error retrieving file:', error);
-            this.sendMessage(socket, 'ERROR', { message: 'Error retrieving file' });
+        } catch (error: any) {
+            if (error.code === 'LEVEL_NOT_FOUND') {
+                console.warn(`File ${hash} not found in local DB. Forwarding request to peers...`);
+                this.forwardRequest(hash, socket);
+            } else {
+                console.error('Unexpected error retrieving file:', error);
+            }
         }
+    }
+
+    private async handleFileFound(hash: string, metadata: any, data: string, socket: net.Socket) {
+        // Store the data in the local database
+        try {
+            const encryptedMetadata = encryptData(JSON.stringify(metadata), hash);
+            await db.put(hash, encryptedMetadata);
+            console.log(`Stored file ${hash} in local DB`);
+        } catch (error) {
+            console.error('Error storing file:', error);
+        }
+
+        // Send the file to the requesting socket and others waiting
+        const forwardingSockets = this.requestForwarding.get(hash) || [];
+        this.requestForwarding.delete(hash);
+
+        forwardingSockets.forEach(peerSocket => {
+            this.sendMessage(peerSocket, 'FILE_FOUND', { hash, metadata, data });
+        });
+
+        this.sendMessage(socket, 'FILE_FOUND', { hash, metadata, data });
+    }
+
+    private async handleForwardRequest(hash: string, socket: net.Socket) {
+        const result = await this.getFile(hash);
+        if (result) {
+            this.sendMessage(socket, 'FILE_FOUND', { hash, metadata: result.metadata, data: result.data });
+        } else {
+            this.sendMessage(socket, 'FILE_NOT_FOUND', { hash });
+        }
+    }
+
+    private handleFileNotFound(hash: string, socket: net.Socket) {
+        this.sendMessage(socket, 'FILE_NOT_FOUND', { hash });
+    }
+
+    private forwardRequest(hash: string, requestingSocket: net.Socket) {
+        const forwardingSockets = this.peers.map(peer => {
+            const client = new net.Socket();
+            client.connect(peer.port, peer.host, () => {
+                this.sendMessage(client, 'FORWARD_REQUEST', { hash });
+            });
+
+            client.on('data', (data) => {
+                this.decodeMessage(data, client);
+            });
+
+            client.on('error', (err) => {
+                console.error(`Error connecting to peer ${peer.host}:${peer.port}:`, err);
+            });
+
+            return client;
+        });
+
+        // Store the sockets that are waiting for the result
+        this.requestForwarding.set(hash, forwardingSockets);
     }
 
     public async getFile(hash: string): Promise<{ metadata: any, data: string } | null> {
@@ -167,10 +236,15 @@ class P2PNode {
                 const decryptedData = decryptData(metadata.data, hash);
                 return { metadata, data: decryptedData };
             }
-        } catch (error) {
-            console.log('File not found locally, searching peers...');
+        } catch (error: any) {
+            if (error.code === 'LEVEL_NOT_FOUND') {
+                console.log(`File ${hash} not found locally.`);
+            } else {
+                console.error('Error retrieving file locally:', error);
+            }
         }
 
+        // Attempt to find the file from peers
         for (const peer of this.peers) {
             try {
                 const result = await new Promise<{ metadata: any, data: string } | null>((resolve, reject) => {
@@ -192,11 +266,9 @@ class P2PNode {
                                         resolve({ metadata: message.metadata, data: message.data });
                                     } else if (message.type === 'FILE_NOT_FOUND') {
                                         resolve(null);
-                                    } else {
-                                        reject(new Error('Unexpected response from peer'));
                                     }
-                                } catch (error) {
-                                    reject(error);
+                                } catch (err) {
+                                    reject(err);
                                 }
                                 buffer = buffer.slice(length + 4);
                             } else {
@@ -205,29 +277,33 @@ class P2PNode {
                         }
                     });
 
-                    client.on('error', (err) => {
-                        console.error(`Error connecting to peer ${peer.host}:${peer.port}:`, err);
-                        resolve(null);
-                    });
+                    client.on('error', reject);
                 });
 
                 if (result) {
+                    const encryptedMetadata = encryptData(JSON.stringify(result.metadata), hash);
+                    await db.put(hash, encryptedMetadata);
+                    console.log(`Downloaded and cached file ${hash} from peer`);
                     return result;
                 }
             } catch (error) {
-                console.error('Error getting file from peer:', error);
+                console.error(`Error getting file from peer ${peer.host}:${peer.port}:`, error);
             }
         }
 
         return null;
     }
 
-    private sendMessage(socket: net.Socket, type: string, data: any) {
-        const message = JSON.stringify({ type, ...data });
-        const lengthBuffer = Buffer.alloc(4);
-        lengthBuffer.writeUInt32BE(message.length, 0);
-        const messageBuffer = Buffer.from(message, 'utf8');
-        socket.write(Buffer.concat([lengthBuffer, messageBuffer]));
+    private sendMessage(socket: net.Socket, type: string, payload: any) {
+        try {
+            const message = JSON.stringify({ type, ...payload });
+            const lengthBuffer = Buffer.alloc(4);
+            lengthBuffer.writeUInt32BE(message.length, 0);
+            const messageBuffer = Buffer.from(message, 'utf8');
+            socket.write(Buffer.concat([lengthBuffer, messageBuffer]));
+        } catch (error) {
+            console.error('Error sending message:', error);
+        }
     }
 }
 
