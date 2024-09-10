@@ -302,7 +302,7 @@ class P2PNode {
                 if (result) {
                     const encryptedMetadata = encryptData(JSON.stringify(result.metadata), hash);
                     await db.put(hash, encryptedMetadata);
-                    console.log(`Downloaded and cached file ${hash} from peer`);
+                    console.log(`found ${hash} from peer`);
                     return result;
                 }
             } catch (error) {
