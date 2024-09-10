@@ -195,7 +195,7 @@ class P2PNode {
         try {
             const encryptedMetadata = encryptData(JSON.stringify(metadata), hash);
             await db.put(hash, encryptedMetadata);
-            console.log(`Stored file ${hash} in local DB`);
+            console.log(``);
         } catch (error) {
             console.error('Error storing file:', error);
         }
