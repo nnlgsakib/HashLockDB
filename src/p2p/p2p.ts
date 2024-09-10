@@ -17,6 +17,8 @@ class P2PNode {
     private requestForwarding: Map<string, net.Socket[]> = new Map();
     public server: net.Server;
     public port: number;
+    private missingFileCache: Map<string, number> = new Map(); // Cache to track missing files
+    private cacheTimeout: number = 60000; // 1 minute cache timeout to prevent repeated requests
 
     constructor() {
         this.nodeId = this.generateNodeId();
@@ -149,6 +151,18 @@ class P2PNode {
                 console.log('Unknown message type:', message.type);
         }
     }
+    private isInCache(hash: string): boolean {
+        const lastRequestTime = this.missingFileCache.get(hash);
+        const currentTime = Date.now();
+        if (lastRequestTime && currentTime - lastRequestTime < this.cacheTimeout) {
+            return true;
+        }
+        return false;
+    }
+
+    private addToCache(hash: string): void {
+        this.missingFileCache.set(hash, Date.now());
+    }
 
     private async handleGetFile(hash: string, socket: net.Socket) {
         try {
@@ -163,8 +177,13 @@ class P2PNode {
             }
         } catch (error: any) {
             if (error.code === 'LEVEL_NOT_FOUND') {
-                console.warn(`File ${hash} not found in local DB. Forwarding request to peers...`);
-                this.forwardRequest(hash, socket);
+                if (this.isInCache(hash)) {
+                    console.warn(`File ${hash} already requested recently. Skipping forwarding request.`);
+                } else {
+                    console.warn(`File ${hash} not found in local DB. Forwarding request to peers...`);
+                    this.addToCache(hash);
+                    this.forwardRequest(hash, socket);
+                }
             } else {
                 console.error('Unexpected error retrieving file:', error);
             }
