@@ -59,7 +59,7 @@ class P2PNode {
     }
 
     private async loadPeers() {
-        const peersPath = path.join(__dirname, '..', 'data', 'peers.json');
+        const peersPath = path.join(__dirname, '..', 'peers.json');
         try {
             const peersData = await fs.promises.readFile(peersPath, 'utf-8');
             const peerList: string[] = JSON.parse(peersData);
